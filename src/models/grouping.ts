@@ -114,7 +114,10 @@ export function buildAntigravityCatalog(
   for (const group of groups.values()) {
     const fallbackModel = fallback.models.find((model) => model.id === group.publicId);
     const fallbackRouting = fallback.routing[group.publicId];
-    if (fallbackModel && fallbackRouting) {
+    // Argon's fallback runtime is provisional: prefer any variants the service advertises.
+    const discoveredArgonVariants =
+      group.publicId === "gemini-4-argon" && Object.keys(group.variants).length > 0;
+    if (fallbackModel && fallbackRouting && !discoveredArgonVariants) {
       models.push(fallbackModel);
       routing[group.publicId] = fallbackRouting;
       continue;
@@ -168,7 +171,7 @@ function absorbMetadata(
 function mergeAgentSingletons(groups: Map<string, RuntimeGroup>): void {
   for (const [publicId, group] of [...groups.entries()]) {
     if (!publicId.endsWith("-agent")) continue;
-    if (Object.keys(group.variants).length > 0) continue;
+    if (Object.keys(group.variants).length > 1) continue;
     const family = displayFamily(group.displayNames[0]);
     if (!family) continue;
     const target = [...groups.values()].find(
@@ -176,10 +179,15 @@ function mergeAgentSingletons(groups: Map<string, RuntimeGroup>): void {
         candidate.publicId !== publicId &&
         candidate.displayNames.some((name) => displayFamily(name) === family),
     );
-    if (!target || !group.unsuffixed) continue;
+    const runtimeId = group.unsuffixed ?? Object.values(group.variants)[0];
+    if (!target || !runtimeId) continue;
     const level = levelFromDisplayName(group.displayNames[0]) ?? ThinkingEffort.High;
-    target.variants[level] = group.unsuffixed;
-    absorbMetadata(target, { supportsThinking: group.supportsThinking }, group.displayNames[0]);
+    target.variants[level] = runtimeId;
+    absorbMetadata(
+      target,
+      { supportsThinking: group.supportsThinking, supportsImages: group.supportsImages },
+      group.displayNames[0],
+    );
     groups.delete(publicId);
   }
 }
@@ -224,7 +232,9 @@ function synthesizeModel(
   group: RuntimeGroup,
   fallbackModels: ProviderModelConfig[],
 ): { model: ProviderModelConfig; routing: AntigravityRouting } {
-  const template = familyTemplate(group.publicId, fallbackModels);
+  const template =
+    fallbackModels.find((model) => model.id === group.publicId) ??
+    familyTemplate(group.publicId, fallbackModels);
   const advertisedLevels = advertisedThinkingLevels(group);
   const routing = routingFromVariants(group.publicId, group.variants, group.unsuffixed);
   const supportsImages = group.supportsImages ?? template?.input.includes("image") ?? true;
@@ -354,7 +364,7 @@ function familyTemplate(
     return fallbackModels.find((model) => model.id.startsWith("gpt-oss"));
   }
   if (publicId.startsWith("gemini-")) {
-    return fallbackModels.find((model) => model.id.startsWith("gemini-"));
+    return fallbackModels.find((model) => /^gemini-.*-flash/i.test(model.id));
   }
   return undefined;
 }
