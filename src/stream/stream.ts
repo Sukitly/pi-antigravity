@@ -1529,7 +1529,14 @@ export function streamAntigravity(
         for (let candIdx = 0; candIdx < runtimeCandidates.length; candIdx++) {
           runtimeModel = runtimeCandidates[candIdx]!;
           setLastResolvedRuntimeModel(runtimeModel);
-          const body = JSON.stringify(buildRequest(model, context, projectId, opts, runtimeModel));
+          const rawPayload = buildRequest(model, context, projectId, opts, runtimeModel);
+          let requestPayload: unknown = rawPayload;
+          if (opts.onPayload) {
+            const nextPayload = await opts.onPayload(rawPayload, model);
+            if (nextPayload !== undefined) requestPayload = nextPayload;
+          }
+          const body =
+            typeof requestPayload === "string" ? requestPayload : JSON.stringify(requestPayload);
 
           for (const endpoint of endpointCandidates()) {
             setLastEndpoint(endpoint);
@@ -1545,7 +1552,16 @@ export function streamAntigravity(
               streamStallTimeoutMs(),
             );
             setLastStatus(response.status);
-            if (response.ok) break;
+            if (response.ok) {
+              if (opts.onResponse) {
+                const headersObj: Record<string, string> = {};
+                response.headers.forEach((v, k) => {
+                  headersObj[k] = v;
+                });
+                await opts.onResponse({ status: response.status, headers: headersObj }, model);
+              }
+              break;
+            }
             lastText = await response.text();
             if (
               response.status === 429 &&
