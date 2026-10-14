@@ -19,10 +19,23 @@ export const PROVIDER_NAME = "Antigravity";
  * - Claude Opus 4.6 (Thinking)
  * - GPT-OSS 120B (Medium)
  *
- * Pi exposes those as public model IDs and only surfaces the exact thinking levels
- * advertised by the backend for each model.
+ * Gemini 4 Argon also has a fallback entry based on Google's published API model ID.
+ * Its Antigravity availability and runtime variants are account-dependent.
+ * Pi exposes the documented thinking levels until discovery supplies runtime variants.
  */
 export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
+  // Do not invent Antigravity variant IDs before the service advertises them.
+  "gemini-4-argon": {
+    off: "gemini-4-argon",
+    routing: {
+      minimal: "gemini-4-argon",
+      low: "gemini-4-argon",
+      medium: "gemini-4-argon",
+      high: "gemini-4-argon",
+      xhigh: "gemini-4-argon",
+    },
+    defaultRequestId: "gemini-4-argon",
+  },
   "claude-opus-4-6": {
     routing: {
       minimal: "claude-opus-4-6-thinking",
@@ -115,10 +128,12 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 };
 
 /**
- * Verified maximum output tokens accepted by the Cloud Code Assist backend per model/runtime ID.
- * Requesting more than these limits returns a 400 Bad Request from the API.
+ * Maximum output tokens per streaming request. Existing Cloud Code Assist limits are
+ * verified; Argon's limit follows Google's published streamGenerateContent cap.
+ * Long decode requires continuation support, not a larger single-request limit.
  */
 export const RUNTIME_MAX_OUTPUT_TOKENS: Record<string, number> = {
+  "gemini-4-argon": 65536,
   "gemini-3.8-flash": 65536,
   "gemini-3.8-flash-low": 65536,
   "gemini-3.8-flash-medium": 65536,
@@ -167,6 +182,8 @@ export function getMaxOutputTokens(modelId: string, runtimeModel?: string): numb
 
 const geminiFlashCost = { input: 0.1, output: 0.4, cacheRead: 0.025, cacheWrite: 0.1 };
 const geminiProCost = { input: 1.25, output: 5.0, cacheRead: 0.3125, cacheWrite: 1.25 };
+// API-equivalent introductory pricing through November 30, 2026; subscription access is quota-backed.
+const geminiArgonCost = { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 0 };
 const claudeSonnetCost = { input: 3.0, output: 15.0, cacheRead: 0.3, cacheWrite: 3.75 };
 const claudeOpusCost = { input: 15.0, output: 75.0, cacheRead: 1.5, cacheWrite: 18.75 };
 const gptOssCost = { input: 0.6, output: 2.4, cacheRead: 0.15, cacheWrite: 0.6 };
@@ -212,8 +229,18 @@ const thinkingLevelMaps = {
   },
 } satisfies Record<string, ProviderModelConfig["thinkingLevelMap"]>;
 
-/** Same set as `agy models`, collapsed to public Pi model IDs. */
+/** Conservative fallback catalog; authenticated discovery supplies account-specific additions. */
 export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
+  {
+    id: "gemini-4-argon",
+    name: "Gemini 4 Argon (Antigravity)",
+    reasoning: true,
+    thinkingLevelMap: thinkingLevelMaps.lowMediumHigh,
+    input: ["text", "image"],
+    cost: geminiArgonCost,
+    contextWindow: 1048576,
+    maxTokens: 65536,
+  },
   {
     id: "gemini-3.8-flash",
     name: "Gemini 3.8 Flash (Antigravity)",
@@ -469,6 +496,16 @@ export function getThinkingConfig(
   modelId: string,
   effort: string | undefined,
 ): ThinkingWire | undefined {
+  if (/^gemini-4-argon(?:-|$)/.test(modelId)) {
+    // Argon cannot disable thinking and rejects the legacy thinkingBudget field.
+    const thinkingLevel =
+      effort === "off" || effort === "minimal" || effort === "low"
+        ? "LOW"
+        : effort === "high" || effort === "xhigh" || effort === "max"
+          ? "HIGH"
+          : "MEDIUM";
+    return { includeThoughts: effort !== "off", thinkingLevel };
+  }
   if (modelId.startsWith("claude-")) {
     if (!effort || effort === "off") return { includeThoughts: false, thinkingBudget: 0 };
     return { includeThoughts: true, thinkingBudget: 1024 };

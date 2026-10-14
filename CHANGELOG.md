@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Gemini 4 Argon:** Register `gemini-4-argon` with Low/Medium/High `thinkingLevel`, a unified 1M context window, and a 65,536-token streaming output cap. Antigravity access remains account-dependent; discovered runtime variants override the provisional base-ID route without inventing model enums or silently downgrading models.
+
 ## [0.10.0] - 2026-10-08
 
 ### Added
