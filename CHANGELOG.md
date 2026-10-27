@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-16
+
+### Added
+
+- **Per-claim search citations:** Google Search results follow grounding redirects and page titles, then cite each claim with a real label and URL. Enrichment is bounded, skips private and non-HTTP destinations, and can be disabled with `ANTIGRAVITY_NO_SOURCE_ENRICH=1` (#86).
+
+### Changed
+
+- **Live catalogs:** A successful discovery replaces the selectable catalog with advertised models, capabilities, and token limits instead of re-inserting missing static entries. Lookup is exact. Older caches and account changes refresh on the next network-enabled run (#90, #92, #93).
+- **Client fingerprint:** Default User-Agent is aligned with official CLI `1.4.0` (`antigravity/cli/1.4.0`), ensuring capability gating exposes Gemini 4 Argon and newest agent routes (#93, #94, #95, #96, #97).
+- **Active model curation:** Prioritize Google's curated `agentModelSorts` during model discovery and `/antigravity.models`, matching official `agy` CLI behavior and filtering out deprecated/retired routes like `gemini-pro-agent` and historical 2.5/3.1 Pro models that fail or loop in retries (#89, #97).
+
+### Fixed
+
+- **Default Google Search:** Lite searches no longer send `thinkingBudget: 0`, which the backend rejects with HTTP 400. Model-specific invalid-argument responses try the remaining search fallbacks (#84, #85, #88).
+- **Unavailable models:** A generic 429 `RESOURCE_EXHAUSTED` without a reset hint fails immediately, keeps the backend message, and suggests a Flash model instead of looking like a quota wall that Pi retries (#89).
+- **Headless catalogs:** Session start refreshes the persisted catalog outside the interactive picker, so a later `pi -p` run can resolve newly entitled models (#93).
+- **Static diagnostics:** Requests that skip dynamic discovery still record the matched runtime and known catalog instead of `matched=none, available=unknown` (#89).
+
 ## [0.10.0] - 2026-10-08
 
 ### Added
