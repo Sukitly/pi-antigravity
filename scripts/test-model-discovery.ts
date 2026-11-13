@@ -633,6 +633,34 @@ const mixedRawModels: Record<string, ModelInfoRaw> = {
   "gemini-4-argon-low": info("Gemini 4 Argon (Low)"),
   "gemini-4-argon-medium": info("Gemini 4 Argon (Medium)"),
   "gemini-4-argon-high": info("Gemini 4 Argon (High)"),
+  "gemini-4-carbon-low": info("Gemini 4 Carbon (Low)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
+  "gemini-4-carbon-medium": info("Gemini 4 Carbon (Medium)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
+  "gemini-4-carbon-high": info("Gemini 4 Carbon (High)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
+  "gemini-4-hydrogen-low": info("Gemini 4 Hydrogen (Low)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
+  "gemini-4-hydrogen-medium": info("Gemini 4 Hydrogen (Medium)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
+  "gemini-4-hydrogen-high": info("Gemini 4 Hydrogen (High)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
+  "gemini-4-hydrogen-xhigh": info("Gemini 4 Hydrogen (XHigh)", {
+    maxTokens: 1048576,
+    maxOutputTokens: 262144,
+  }),
   "gemini-3.8-flash-low": info("Gemini 3.8 Flash (Low)"),
   "gemini-3.8-flash-medium": info("Gemini 3.8 Flash (Medium)"),
   "gemini-3.8-flash-high": info("Gemini 3.8 Flash (High)"),
@@ -643,7 +671,33 @@ const mixedRawModels: Record<string, ModelInfoRaw> = {
 
 const curatedCatalog = buildAntigravityCatalog(mixedRawModels, fallback, sortsPayload);
 const curatedIds = curatedCatalog.models.map((m) => m.id);
-assert.deepEqual(curatedIds.sort(), ["gemini-3.8-flash", "gemini-4-argon"].sort());
+assert.deepEqual(
+  curatedIds.sort(),
+  ["gemini-3.8-flash", "gemini-4-argon", "gemini-4-carbon", "gemini-4-hydrogen"].sort(),
+);
+for (const level of ["low", "medium", "high"] as const) {
+  assert.equal(curatedCatalog.routing["gemini-4-carbon"].routing?.[level], `gemini-4-carbon-${level}`);
+}
+for (const level of ["low", "medium", "high", "xhigh"] as const) {
+  assert.equal(curatedCatalog.routing["gemini-4-hydrogen"].routing?.[level], `gemini-4-hydrogen-${level}`);
+}
+assert.equal(curatedCatalog.models.find((m) => m.id === "gemini-4-hydrogen")?.thinkingLevelMap?.xhigh, "xhigh");
+assert.equal(curatedCatalog.models.find((m) => m.id === "gemini-4-carbon")?.maxTokens, 262144);
+assert.equal(curatedCatalog.models.find((m) => m.id === "gemini-4-hydrogen")?.maxTokens, 262144);
+assert.ok(
+  !buildAntigravityCatalog(
+    { "gemini-4-argon-low": mixedRawModels["gemini-4-argon-low"] },
+    fallback,
+    sortsPayload,
+  ).routing["gemini-4-carbon"],
+);
+assert.ok(
+  !buildAntigravityCatalog(
+    { "gemini-4-argon-low": mixedRawModels["gemini-4-argon-low"] },
+    fallback,
+    sortsPayload,
+  ).routing["gemini-4-hydrogen"],
+);
 assert.ok(!curatedCatalog.routing["gemini-pro-agent"], "hides retired gemini-pro-agent");
 assert.ok(!curatedCatalog.routing["gemini-2.5-flash"], "hides retired 2.5 variants");
 assert.ok(!curatedCatalog.routing["gemini-3.1-pro"], "hides retired 3.1 variants");
